@@ -1,19 +1,13 @@
 from datetime import datetime
 from uuid import UUID
-
 from sqlalchemy import select, func, desc
-from src.infrastructure.models.base import metadata
 from src.infrastructure.repositories.base import BaseRepository
-
-
-def _t(name: str):
-    return metadata.tables[name]
 
 
 class TikTokRepository(BaseRepository):
 
     async def get_user_by_open_id(self, tt_open_id: str) -> dict | None:
-        t = _t("tt_users")
+        t = self._t("tt_users")
         stmt = select(
             t.c.id, t.c.tt_open_id, t.c.display_name, t.c.follower_count,
             t.c.following_count, t.c.likes_count, t.c.video_count,
@@ -23,8 +17,7 @@ class TikTokRepository(BaseRepository):
         return dict(row) if row else None
 
     async def get_video_stats(self, user_id: UUID) -> tuple[int, int, int, int, int]:
-        """Вернем (count, total_views, total_likes, total_comments, total_shares)."""
-        t = _t("tt_videos")
+        t = self._t("tt_videos")
         stmt = select(
             func.count().label("cnt"),
             func.coalesce(func.sum(t.c.view_count), 0).label("total_views"),
@@ -39,7 +32,7 @@ class TikTokRepository(BaseRepository):
     async def get_follower_snapshots(
         self, user_id: UUID, date_from: datetime | None, date_to: datetime | None
     ) -> list[dict]:
-        t = _t("tt_user_snapshots")
+        t = self._t("tt_user_snapshots")
         stmt = (
             select(t.c.date, t.c.follower_count, t.c.following_count, t.c.likes_count, t.c.video_count)
             .where(t.c.user_id == user_id)
@@ -55,7 +48,7 @@ class TikTokRepository(BaseRepository):
     async def get_top_videos(
         self, user_id: UUID, date_from: datetime | None, date_to: datetime | None, limit: int = 20
     ) -> list[dict]:
-        t = _t("tt_videos")
+        t = self._t("tt_videos")
         stmt = (
             select(
                 t.c.id, t.c.tt_video_id, t.c.title, t.c.duration, t.c.share_url,
@@ -75,8 +68,8 @@ class TikTokRepository(BaseRepository):
     async def get_video_snapshot_trends(
         self, user_id: UUID, date_from: datetime | None, date_to: datetime | None
     ) -> list[dict]:
-        vs = _t("tt_video_snapshots")
-        v = _t("tt_videos")
+        vs = self._t("tt_video_snapshots")
+        v = self._t("tt_videos")
         stmt = (
             select(
                 vs.c.date,

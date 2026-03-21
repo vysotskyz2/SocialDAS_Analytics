@@ -1,14 +1,13 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-
 from src.interfaces.api.containers import Container
 from src.application.services.instagram_service import InstagramAnalyticsService
 from src.infrastructure.schemas.instagram import (
     IGOverview, IGFollowersResponse, IGPostsResponse, IGEngagementResponse,
 )
 
-router = APIRouter(prefix="/api/v1/reports/instagram", tags=["instagram"])
+router = APIRouter(prefix="/api/v1/analytics/instagram", tags=["instagram"])
 
 
 @router.get("/{account_id}/overview", response_model=IGOverview)

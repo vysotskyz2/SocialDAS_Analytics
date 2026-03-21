@@ -1,8 +1,6 @@
 from contextvars import ContextVar
-
 from dependency_injector import containers, providers
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from src.infrastructure.repositories.instagram_repository import InstagramRepository
 from src.infrastructure.repositories.tiktok_repository import TikTokRepository
 from src.infrastructure.repositories.youtube_repository import YouTubeRepository

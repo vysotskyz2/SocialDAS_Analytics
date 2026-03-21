@@ -1,14 +1,13 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-
 from src.interfaces.api.containers import Container
 from src.application.services.tiktok_advanced import TikTokAdvancedService
 from src.infrastructure.schemas.advanced import (
     GrowthResponse, ContentPerformanceResponse, PostingPatternsResponse, TrendsResponse,
 )
 
-router = APIRouter(prefix="/api/v1/reports/tiktok", tags=["tiktok-advanced"])
+router = APIRouter(prefix="/api/v1/analytics/tiktok", tags=["tiktok-advanced"])
 
 
 @router.get("/{account_id}/growth", response_model=GrowthResponse)

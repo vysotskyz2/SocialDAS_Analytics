@@ -1,14 +1,13 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-
 from src.interfaces.api.containers import Container
 from src.application.services.youtube_service import YouTubeAnalyticsService
 from src.infrastructure.schemas.youtube import (
     YTOverview, YTSubscribersResponse, YTVideosResponse, YTEngagementResponse,
 )
 
-router = APIRouter(prefix="/api/v1/reports/youtube", tags=["youtube"])
+router = APIRouter(prefix="/api/v1/analytics/youtube", tags=["youtube"])
 
 
 @router.get("/{account_id}/overview", response_model=YTOverview)

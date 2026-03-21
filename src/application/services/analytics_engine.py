@@ -1,6 +1,4 @@
 from datetime import datetime
-from typing import Any
-
 import numpy as np
 import pandas as pd
 
@@ -20,7 +18,6 @@ def build_time_series(
 
 
 def compute_growth_rates(series: pd.Series) -> pd.Series:
-    """Percentage change between consecutive values."""
     return series.pct_change() * 100
 
 
@@ -33,12 +30,10 @@ def ema(series: pd.Series, span: int) -> pd.Series:
 
 
 def growth_acceleration(series: pd.Series) -> pd.Series:
-    """Second derivative — rate of change of the growth rate."""
     first = series.diff()
     return first.diff()
 
 def linear_regression(series: pd.Series) -> dict:
-    """Fit OLS on the series index. Returns slope, intercept, r_squared, direction."""
     clean = series.dropna()
     if len(clean) < 2:
         return {"slope": None, "intercept": None, "r_squared": None, "direction": "insufficient_data"}
@@ -70,7 +65,6 @@ def linear_regression(series: pd.Series) -> dict:
 
 
 def project_values(series: pd.Series, days_ahead: int) -> list[dict]:
-    """Project future values using linear regression."""
     clean = series.dropna()
     if len(clean) < 2:
         return []
@@ -91,7 +85,6 @@ def project_values(series: pd.Series, days_ahead: int) -> list[dict]:
 
 
 def descriptive_stats(series: pd.Series) -> dict:
-    """Mean, median, std, min, max, skewness, kurtosis."""
     clean = series.dropna()
     if len(clean) == 0:
         return {k: None for k in ["mean", "median", "std", "min", "max", "skewness", "kurtosis", "count"]}
@@ -116,7 +109,6 @@ def compute_z_scores(series: pd.Series) -> pd.Series:
 
 
 def detect_anomalies(df: pd.DataFrame, value_col: str, threshold: float = 2.0) -> pd.DataFrame:
-    """Return rows where |z-score| > threshold."""
     z = compute_z_scores(df[value_col])
     df = df.copy()
     df["z_score"] = z
@@ -124,12 +116,10 @@ def detect_anomalies(df: pd.DataFrame, value_col: str, threshold: float = 2.0) -
 
 
 def compute_percentile_ranks(series: pd.Series) -> pd.Series:
-    """Percentile rank for each value (0-100)."""
     return series.rank(pct=True) * 100
 
 
 def composite_score(df: pd.DataFrame, columns: list[str], weights: list[float] | None = None) -> pd.Series:
-    """Weighted normalized composite score (0-100 scale)."""
     if weights is None:
         weights = [1.0] * len(columns)
 
@@ -150,7 +140,6 @@ def composite_score(df: pd.DataFrame, columns: list[str], weights: list[float] |
 
 
 def quartile_distribution(series: pd.Series) -> dict:
-    """Count of values in each quartile."""
     clean = series.dropna()
     if len(clean) == 0:
         return {"q1": 0, "q2": 0, "q3": 0, "q4": 0}
@@ -166,7 +155,6 @@ def quartile_distribution(series: pd.Series) -> dict:
 
 
 def engagement_by_day_of_week(df: pd.DataFrame, date_col: str, engagement_col: str) -> list[dict]:
-    """Average engagement per day of week (0=Monday .. 6=Sunday)."""
     df = df.copy()
     df["_dow"] = pd.to_datetime(df[date_col], utc=True).dt.dayofweek
     grouped = df.groupby("_dow")[engagement_col].mean()
@@ -178,7 +166,6 @@ def engagement_by_day_of_week(df: pd.DataFrame, date_col: str, engagement_col: s
 
 
 def engagement_by_hour(df: pd.DataFrame, date_col: str, engagement_col: str) -> list[dict]:
-    """Average engagement per hour of day."""
     df = df.copy()
     df["_hour"] = pd.to_datetime(df[date_col], utc=True).dt.hour
     grouped = df.groupby("_hour")[engagement_col].mean()
@@ -189,7 +176,6 @@ def engagement_by_hour(df: pd.DataFrame, date_col: str, engagement_col: str) -> 
 
 
 def engagement_heatmap(df: pd.DataFrame, date_col: str, engagement_col: str) -> list[list[float]]:
-    """7×24 matrix [day_of_week][hour] with average engagement."""
     df = df.copy()
     ts = pd.to_datetime(df[date_col], utc=True)
     df["_dow"] = ts.dt.dayofweek
@@ -206,7 +192,6 @@ def engagement_heatmap(df: pd.DataFrame, date_col: str, engagement_col: str) -> 
 
 
 def best_posting_time(df: pd.DataFrame, date_col: str, engagement_col: str) -> dict | None:
-    """Find the day-of-week + hour combination with the highest average engagement."""
     df = df.copy()
     ts = pd.to_datetime(df[date_col], utc=True)
     df["_dow"] = ts.dt.dayofweek
@@ -227,7 +212,6 @@ def best_posting_time(df: pd.DataFrame, date_col: str, engagement_col: str) -> d
 def period_comparison(
     series: pd.Series, dates: pd.Series, split_date: datetime
 ) -> dict:
-    """Compare metrics before and after a split date."""
     split = pd.Timestamp(split_date, tz="UTC")
     before = series[dates < split].dropna()
     after = series[dates >= split].dropna()
@@ -259,7 +243,6 @@ def period_comparison(
 def rolling_correlation(
     series_a: pd.Series, series_b: pd.Series, window: int = 7
 ) -> list[dict]:
-    """Rolling Pearson correlation between two series."""
     corr = series_a.rolling(window=window, min_periods=2).corr(series_b)
     result = []
     for i, val in corr.items():
