@@ -3,8 +3,6 @@ from fastapi import FastAPI, Depends, status, HTTPException, Request
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from dependency_injector.wiring import inject, Provide
-
-from src.infrastructure.logging_config import setup_logging
 from src.infrastructure.models.base import async_session_factory, reflect_tables
 from src.interfaces.api.containers import Container, db_session_context
 from src.interfaces.api.routers import instagram, tiktok, youtube
@@ -13,7 +11,6 @@ from src.interfaces.api.routers import instagram_advanced, tiktok_advanced, yout
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_logging()
     await reflect_tables()
 
     container = Container()

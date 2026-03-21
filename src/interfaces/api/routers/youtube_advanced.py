@@ -1,14 +1,13 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-
 from src.interfaces.api.containers import Container
 from src.application.services.youtube_advanced import YouTubeAdvancedService
 from src.infrastructure.schemas.advanced import (
     GrowthResponse, ContentPerformanceResponse, PostingPatternsResponse, TrendsResponse,
 )
 
-router = APIRouter(prefix="/api/v1/reports/youtube", tags=["youtube-advanced"])
+router = APIRouter(prefix="/api/v1/analytics/youtube", tags=["youtube-advanced"])
 
 
 @router.get("/{account_id}/growth", response_model=GrowthResponse)

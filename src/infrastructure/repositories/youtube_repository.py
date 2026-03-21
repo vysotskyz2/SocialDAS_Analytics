@@ -1,26 +1,20 @@
 from datetime import datetime
 from uuid import UUID
-
 from sqlalchemy import select, func, desc
-from src.infrastructure.models.base import metadata
 from src.infrastructure.repositories.base import BaseRepository
-
-
-def _t(name: str):
-    return metadata.tables[name]
 
 
 class YouTubeRepository(BaseRepository):
 
     async def get_channel_by_yt_id(self, yt_channel_id: str) -> dict | None:
-        t = _t("yt_channels")
+        t = self._t("yt_channels")
         stmt = select(t.c.id, t.c.yt_channel_id, t.c.title).where(t.c.yt_channel_id == yt_channel_id)
         result = await self._session.execute(stmt)
         row = result.mappings().first()
         return dict(row) if row else None
 
     async def get_latest_snapshot(self, channel_id: UUID) -> dict | None:
-        t = _t("yt_channel_snapshots")
+        t = self._t("yt_channel_snapshots")
         stmt = (
             select(t.c.subscriber_count, t.c.video_count, t.c.view_count)
             .where(t.c.channel_id == channel_id)
@@ -32,9 +26,8 @@ class YouTubeRepository(BaseRepository):
         return dict(row) if row else None
 
     async def get_video_stats(self, channel_id: UUID) -> tuple[int, int, int, int]:
-        """Вернем (count, total_views, total_likes, total_comments) from latest snapshots."""
-        vs = _t("yt_video_snapshots")
-        v = _t("yt_videos")
+        vs = self._t("yt_video_snapshots")
+        v = self._t("yt_videos")
 
         latest = (
             select(vs.c.video_id, func.max(vs.c.date).label("max_date"))
@@ -62,7 +55,7 @@ class YouTubeRepository(BaseRepository):
     async def get_subscriber_snapshots(
         self, channel_id: UUID, date_from: datetime | None, date_to: datetime | None
     ) -> list[dict]:
-        t = _t("yt_channel_snapshots")
+        t = self._t("yt_channel_snapshots")
         stmt = (
             select(t.c.date, t.c.subscriber_count, t.c.video_count, t.c.view_count)
             .where(t.c.channel_id == channel_id)
@@ -78,8 +71,8 @@ class YouTubeRepository(BaseRepository):
     async def get_top_videos(
         self, channel_id: UUID, date_from: datetime | None, date_to: datetime | None, limit: int = 20
     ) -> list[dict]:
-        vs = _t("yt_video_snapshots")
-        v = _t("yt_videos")
+        vs = self._t("yt_video_snapshots")
+        v = self._t("yt_videos")
 
         latest = (
             select(vs.c.video_id, func.max(vs.c.date).label("max_date"))
@@ -109,8 +102,8 @@ class YouTubeRepository(BaseRepository):
     async def get_video_snapshot_trends(
         self, channel_id: UUID, date_from: datetime | None, date_to: datetime | None
     ) -> list[dict]:
-        vs = _t("yt_video_snapshots")
-        v = _t("yt_videos")
+        vs = self._t("yt_video_snapshots")
+        v = self._t("yt_videos")
         stmt = (
             select(
                 vs.c.date,

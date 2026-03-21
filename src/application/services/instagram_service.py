@@ -1,8 +1,5 @@
 from datetime import datetime
-
 from fastapi import HTTPException, status
-from loguru import logger
-
 from src.infrastructure.repositories.instagram_repository import InstagramRepository
 from src.infrastructure.schemas.instagram import (
     IGOverview, IGFollowersResponse, IGFollowersPoint,

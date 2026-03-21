@@ -1,7 +1,5 @@
 from datetime import datetime
-
 from fastapi import HTTPException, status
-
 from src.infrastructure.repositories.youtube_repository import YouTubeRepository
 from src.infrastructure.schemas.youtube import (
     YTOverview, YTSubscribersResponse, YTSubscribersPoint,

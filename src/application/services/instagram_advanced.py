@@ -1,8 +1,6 @@
 from datetime import datetime
-
 import pandas as pd
 from fastapi import HTTPException, status
-
 from src.application.services import analytics_engine as engine
 from src.infrastructure.repositories.instagram_repository import InstagramRepository
 from src.infrastructure.schemas.advanced import (
@@ -24,7 +22,7 @@ class InstagramAdvancedService:
         return user
 
     async def get_growth(
-        self, account_id: str, date_from: datetime | None, date_to: datetime | None, projection_days: int = 14
+            self, account_id: str, date_from: datetime | None, date_to: datetime | None, projection_days: int = 14
     ) -> GrowthResponse:
         user = await self._resolve_user(account_id)
         snapshots = await self._repo.get_follower_snapshots(user["id"], date_from, date_to)
@@ -68,7 +66,7 @@ class InstagramAdvancedService:
         )
 
     async def get_content_performance(
-        self, account_id: str, date_from: datetime | None, date_to: datetime | None, limit: int = 50
+            self, account_id: str, date_from: datetime | None, date_to: datetime | None, limit: int = 50
     ) -> ContentPerformanceResponse:
         user = await self._resolve_user(account_id)
         posts = await self._repo.get_top_posts(user["id"], date_from, date_to, limit)
@@ -76,7 +74,8 @@ class InstagramAdvancedService:
         if not posts:
             return ContentPerformanceResponse(
                 account_id=account_id,
-                engagement_stats=StatsInfo(**{k: None for k in ["count","mean","median","std","min","max","skewness","kurtosis"]}),
+                engagement_stats=StatsInfo(
+                    **{k: None for k in ["count", "mean", "median", "std", "min", "max", "skewness", "kurtosis"]}),
                 quartile_distribution=QuartileInfo(q1=0, q2=0, q3=0, q4=0),
                 items=[],
             )
@@ -116,9 +115,8 @@ class InstagramAdvancedService:
             items=items,
         )
 
-
     async def get_posting_patterns(
-        self, account_id: str, date_from: datetime | None, date_to: datetime | None
+            self, account_id: str, date_from: datetime | None, date_to: datetime | None
     ) -> PostingPatternsResponse:
         user = await self._resolve_user(account_id)
         posts = await self._repo.get_top_posts(user["id"], date_from, date_to, limit=500)
@@ -159,10 +157,9 @@ class InstagramAdvancedService:
             heatmap=heatmap,
         )
 
-
     async def get_trends(
-        self, account_id: str, date_from: datetime | None, date_to: datetime | None,
-        split_date: datetime | None = None,
+            self, account_id: str, date_from: datetime | None, date_to: datetime | None,
+            split_date: datetime | None = None,
     ) -> TrendsResponse:
         user = await self._resolve_user(account_id)
         insights = await self._repo.get_profile_insights(user["id"], date_from, date_to)

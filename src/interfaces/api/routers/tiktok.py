@@ -1,14 +1,13 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-
 from src.interfaces.api.containers import Container
 from src.application.services.tiktok_service import TikTokAnalyticsService
 from src.infrastructure.schemas.tiktok import (
     TTOverview, TTFollowersResponse, TTVideosResponse, TTEngagementResponse,
 )
 
-router = APIRouter(prefix="/api/v1/reports/tiktok", tags=["tiktok"])
+router = APIRouter(prefix="/api/v1/analytics/tiktok", tags=["tiktok"])
 
 
 @router.get("/{account_id}/overview", response_model=TTOverview)

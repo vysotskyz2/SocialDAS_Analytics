@@ -8,7 +8,7 @@ from src.infrastructure.schemas.advanced import (
     GrowthResponse, ContentPerformanceResponse, PostingPatternsResponse, TrendsResponse,
 )
 
-router = APIRouter(prefix="/api/v1/reports/instagram", tags=["instagram-advanced"])
+router = APIRouter(prefix="/api/v1/analytics/instagram", tags=["instagram-advanced"])
 
 
 @router.get("/{account_id}/growth", response_model=GrowthResponse)

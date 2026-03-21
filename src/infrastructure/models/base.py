@@ -14,6 +14,6 @@ metadata = MetaData()
 
 
 async def reflect_tables() -> None:
-    """Reflect all tables from the Processor database at startup."""
+    """Подключение к базе данных процессора"""
     async with engine.begin() as conn:
         await conn.run_sync(metadata.reflect)
