@@ -10,7 +10,6 @@ def build_time_series(
     date_col: str,
     value_col: str,
 ) -> pd.DataFrame:
-    """Build a sorted time-series DataFrame from a list of dicts."""
     if not records:
         return pd.DataFrame(columns=[date_col, value_col])
     df = pd.DataFrame(records)
@@ -18,9 +17,6 @@ def build_time_series(
     df = df.sort_values(date_col).reset_index(drop=True)
     df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
     return df
-
-
-# ── Growth & Moving Averages ──────────────────────────────────────────
 
 
 def compute_growth_rates(series: pd.Series) -> pd.Series:
@@ -40,10 +36,6 @@ def growth_acceleration(series: pd.Series) -> pd.Series:
     """Second derivative — rate of change of the growth rate."""
     first = series.diff()
     return first.diff()
-
-
-# ── Linear Regression & Projection ────────────────────────────────────
-
 
 def linear_regression(series: pd.Series) -> dict:
     """Fit OLS on the series index. Returns slope, intercept, r_squared, direction."""
@@ -98,9 +90,6 @@ def project_values(series: pd.Series, days_ahead: int) -> list[dict]:
     return projections
 
 
-# ── Statistical Summaries ─────────────────────────────────────────────
-
-
 def descriptive_stats(series: pd.Series) -> dict:
     """Mean, median, std, min, max, skewness, kurtosis."""
     clean = series.dropna()
@@ -118,9 +107,6 @@ def descriptive_stats(series: pd.Series) -> dict:
     }
 
 
-# ── Z-Scores & Anomalies ─────────────────────────────────────────────
-
-
 def compute_z_scores(series: pd.Series) -> pd.Series:
     mean = series.mean()
     std = series.std()
@@ -135,9 +121,6 @@ def detect_anomalies(df: pd.DataFrame, value_col: str, threshold: float = 2.0) -
     df = df.copy()
     df["z_score"] = z
     return df[df["z_score"].abs() > threshold]
-
-
-# ── Percentiles & Scoring ─────────────────────────────────────────────
 
 
 def compute_percentile_ranks(series: pd.Series) -> pd.Series:
@@ -180,9 +163,6 @@ def quartile_distribution(series: pd.Series) -> dict:
         "q3": int(((clean > q50) & (clean <= q75)).sum()),
         "q4": int((clean > q75).sum()),
     }
-
-
-# ── Posting Patterns ─────────────────────────────────────────────────
 
 
 def engagement_by_day_of_week(df: pd.DataFrame, date_col: str, engagement_col: str) -> list[dict]:
@@ -244,9 +224,6 @@ def best_posting_time(df: pd.DataFrame, date_col: str, engagement_col: str) -> d
     }
 
 
-# ── Period-over-Period Comparison ─────────────────────────────────────
-
-
 def period_comparison(
     series: pd.Series, dates: pd.Series, split_date: datetime
 ) -> dict:
@@ -277,9 +254,6 @@ def period_comparison(
         "after": after_stats,
         "change_pct": change_pct,
     }
-
-
-# ── Rolling Correlations ─────────────────────────────────────────────
 
 
 def rolling_correlation(

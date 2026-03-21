@@ -23,8 +23,6 @@ class InstagramAdvancedService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instagram account not found")
         return user
 
-    # ── Growth ────────────────────────────────────────────────────────
-
     async def get_growth(
         self, account_id: str, date_from: datetime | None, date_to: datetime | None, projection_days: int = 14
     ) -> GrowthResponse:
@@ -68,8 +66,6 @@ class InstagramAdvancedService:
             projections=[ProjectionPoint(**p) for p in projections],
             data=data,
         )
-
-    # ── Content Performance ───────────────────────────────────────────
 
     async def get_content_performance(
         self, account_id: str, date_from: datetime | None, date_to: datetime | None, limit: int = 50
@@ -120,7 +116,6 @@ class InstagramAdvancedService:
             items=items,
         )
 
-    # ── Posting Patterns ──────────────────────────────────────────────
 
     async def get_posting_patterns(
         self, account_id: str, date_from: datetime | None, date_to: datetime | None
@@ -164,7 +159,6 @@ class InstagramAdvancedService:
             heatmap=heatmap,
         )
 
-    # ── Trends & Anomalies ────────────────────────────────────────────
 
     async def get_trends(
         self, account_id: str, date_from: datetime | None, date_to: datetime | None,

@@ -2,8 +2,6 @@ from datetime import datetime
 from pydantic import BaseModel
 
 
-# ── Growth Analysis ───────────────────────────────────────────────────
-
 
 class GrowthPoint(BaseModel):
     date: datetime
@@ -33,9 +31,6 @@ class GrowthResponse(BaseModel):
     regression: RegressionInfo
     projections: list[ProjectionPoint]
     data: list[GrowthPoint]
-
-
-# ── Content Performance ───────────────────────────────────────────────
 
 
 class StatsInfo(BaseModel):
@@ -72,9 +67,6 @@ class ContentPerformanceResponse(BaseModel):
     items: list[ContentItem]
 
 
-# ── Posting Patterns ──────────────────────────────────────────────────
-
-
 class DayEngagement(BaseModel):
     day: str
     day_index: int
@@ -102,8 +94,6 @@ class PostingPatternsResponse(BaseModel):
     best_time: BestTime | None
     heatmap: list[list[float]]
 
-
-# ── Trends & Anomalies ────────────────────────────────────────────────
 
 
 class AnomalyItem(BaseModel):
