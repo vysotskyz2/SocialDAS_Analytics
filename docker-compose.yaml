@@ -1,0 +1,20 @@
+services:
+  analytics:
+    build: .
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - 8003:8000
+    volumes:
+      - .:/analytics_app
+    networks:
+      - microservices_network
+
+networks:
+  microservices_network:
+    external: true
