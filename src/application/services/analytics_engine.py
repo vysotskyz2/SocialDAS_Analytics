@@ -3,6 +3,13 @@ import numpy as np
 import pandas as pd
 
 
+def _ensure_float(series: pd.Series) -> pd.Series:
+    """Ensures the series is of float64 type, converting from Decimal or other types."""
+    if series.dtype == object:
+        return pd.to_numeric(series, errors="coerce").astype(np.float64)
+    return series.astype(np.float64)
+
+
 def build_time_series(
     records: list[dict],
     date_col: str,
@@ -18,25 +25,40 @@ def build_time_series(
 
 
 def compute_growth_rates(series: pd.Series) -> pd.Series:
+    series = _ensure_float(series)
     return series.pct_change() * 100
 
 
 def sma(series: pd.Series, window: int) -> pd.Series:
+    series = _ensure_float(series)
     return series.rolling(window=window, min_periods=1).mean()
 
 
 def ema(series: pd.Series, span: int) -> pd.Series:
+    series = _ensure_float(series)
     return series.ewm(span=span, adjust=False).mean()
 
 
 def growth_acceleration(series: pd.Series) -> pd.Series:
+    series = _ensure_float(series)
     first = series.diff()
     return first.diff()
 
+
 def linear_regression(series: pd.Series) -> dict:
+    series = _ensure_float(series)
     clean = series.dropna()
-    if len(clean) < 2:
+    if len(clean) == 0:
         return {"slope": None, "intercept": None, "r_squared": None, "direction": "insufficient_data"}
+
+    if len(clean) == 1:
+        val = float(clean.iloc[0])
+        return {
+            "slope": 0.0,
+            "intercept": round(val, 4),
+            "r_squared": 1.0,
+            "direction": "stable",
+        }
 
     x = np.arange(len(clean), dtype=np.float64)
     y = clean.values.astype(np.float64)
@@ -65,16 +87,28 @@ def linear_regression(series: pd.Series) -> dict:
 
 
 def project_values(series: pd.Series, days_ahead: int) -> list[dict]:
+    series = _ensure_float(series)
     clean = series.dropna()
-    if len(clean) < 2:
+    if len(clean) == 0:
         return []
+
+    projections = []
+    last_date = clean.index[-1] if isinstance(clean.index, pd.DatetimeIndex) else None
+
+    if len(clean) == 1:
+        val = float(clean.iloc[0])
+        for i in range(1, days_ahead + 1):
+            point = {"day_offset": i, "projected_value": round(val, 2)}
+            if last_date is not None:
+                point["date"] = (last_date + pd.Timedelta(days=i)).isoformat()
+            projections.append(point)
+        return projections
 
     x = np.arange(len(clean), dtype=np.float64)
     y = clean.values.astype(np.float64)
     coeffs = np.polyfit(x, y, 1)
 
     projections = []
-    last_date = clean.index[-1] if isinstance(clean.index, pd.DatetimeIndex) else None
     for i in range(1, days_ahead + 1):
         val = float(np.polyval(coeffs, len(clean) - 1 + i))
         point = {"day_offset": i, "projected_value": round(val, 2)}
@@ -85,6 +119,7 @@ def project_values(series: pd.Series, days_ahead: int) -> list[dict]:
 
 
 def descriptive_stats(series: pd.Series) -> dict:
+    series = _ensure_float(series)
     clean = series.dropna()
     if len(clean) == 0:
         return {k: None for k in ["mean", "median", "std", "min", "max", "skewness", "kurtosis", "count"]}
@@ -101,6 +136,7 @@ def descriptive_stats(series: pd.Series) -> dict:
 
 
 def compute_z_scores(series: pd.Series) -> pd.Series:
+    series = _ensure_float(series)
     mean = series.mean()
     std = series.std()
     if std == 0 or pd.isna(std):
@@ -109,13 +145,15 @@ def compute_z_scores(series: pd.Series) -> pd.Series:
 
 
 def detect_anomalies(df: pd.DataFrame, value_col: str, threshold: float = 2.0) -> pd.DataFrame:
-    z = compute_z_scores(df[value_col])
     df = df.copy()
+    df[value_col] = _ensure_float(df[value_col])
+    z = compute_z_scores(df[value_col])
     df["z_score"] = z
     return df[df["z_score"].abs() > threshold]
 
 
 def compute_percentile_ranks(series: pd.Series) -> pd.Series:
+    series = _ensure_float(series)
     return series.rank(pct=True) * 100
 
 
@@ -123,14 +161,16 @@ def composite_score(df: pd.DataFrame, columns: list[str], weights: list[float] |
     if weights is None:
         weights = [1.0] * len(columns)
 
+    df = df.copy()
     scores = pd.DataFrame()
     for col in columns:
-        col_min = df[col].min()
-        col_max = df[col].max()
+        col_series = _ensure_float(df[col])
+        col_min = col_series.min()
+        col_max = col_series.max()
         if col_max - col_min == 0:
             scores[col] = 0.5
         else:
-            scores[col] = (df[col] - col_min) / (col_max - col_min)
+            scores[col] = (col_series - col_min) / (col_max - col_min)
 
     weight_arr = np.array(weights, dtype=np.float64)
     weight_arr = weight_arr / weight_arr.sum()
@@ -140,6 +180,7 @@ def composite_score(df: pd.DataFrame, columns: list[str], weights: list[float] |
 
 
 def quartile_distribution(series: pd.Series) -> dict:
+    series = _ensure_float(series)
     clean = series.dropna()
     if len(clean) == 0:
         return {"q1": 0, "q2": 0, "q3": 0, "q4": 0}
@@ -156,27 +197,30 @@ def quartile_distribution(series: pd.Series) -> dict:
 
 def engagement_by_day_of_week(df: pd.DataFrame, date_col: str, engagement_col: str) -> list[dict]:
     df = df.copy()
+    df[engagement_col] = _ensure_float(df[engagement_col])
     df["_dow"] = pd.to_datetime(df[date_col], utc=True).dt.dayofweek
-    grouped = df.groupby("_dow")[engagement_col].mean()
+    grouped = df.groupby("_dow")[engagement_col].mean().fillna(0.0)
     day_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
     return [
-        {"day": day_names[i], "day_index": i, "avg_engagement": round(float(grouped.get(i, 0)), 2)}
+        {"day": day_names[i], "day_index": i, "avg_engagement": round(float(grouped.get(i, 0.0)), 2)}
         for i in range(7)
     ]
 
 
 def engagement_by_hour(df: pd.DataFrame, date_col: str, engagement_col: str) -> list[dict]:
     df = df.copy()
+    df[engagement_col] = _ensure_float(df[engagement_col])
     df["_hour"] = pd.to_datetime(df[date_col], utc=True).dt.hour
-    grouped = df.groupby("_hour")[engagement_col].mean()
+    grouped = df.groupby("_hour")[engagement_col].mean().fillna(0.0)
     return [
-        {"hour": h, "avg_engagement": round(float(grouped.get(h, 0)), 2)}
+        {"hour": h, "avg_engagement": round(float(grouped.get(h, 0.0)), 2)}
         for h in range(24)
     ]
 
 
 def engagement_heatmap(df: pd.DataFrame, date_col: str, engagement_col: str) -> list[list[float]]:
     df = df.copy()
+    df[engagement_col] = _ensure_float(df[engagement_col])
     ts = pd.to_datetime(df[date_col], utc=True)
     df["_dow"] = ts.dt.dayofweek
     df["_hour"] = ts.dt.hour
@@ -185,7 +229,12 @@ def engagement_heatmap(df: pd.DataFrame, date_col: str, engagement_col: str) -> 
     for dow in range(7):
         row = []
         for h in range(24):
-            val = float(pivot.loc[dow, h]) if dow in pivot.index and h in pivot.columns else 0.0
+            if dow in pivot.index and h in pivot.columns:
+                val = float(pivot.loc[dow, h])
+                if pd.isna(val):
+                    val = 0.0
+            else:
+                val = 0.0
             row.append(round(val, 2))
         matrix.append(row)
     return matrix
@@ -193,10 +242,11 @@ def engagement_heatmap(df: pd.DataFrame, date_col: str, engagement_col: str) -> 
 
 def best_posting_time(df: pd.DataFrame, date_col: str, engagement_col: str) -> dict | None:
     df = df.copy()
+    df[engagement_col] = _ensure_float(df[engagement_col])
     ts = pd.to_datetime(df[date_col], utc=True)
     df["_dow"] = ts.dt.dayofweek
     df["_hour"] = ts.dt.hour
-    grouped = df.groupby(["_dow", "_hour"])[engagement_col].mean()
+    grouped = df.groupby(["_dow", "_hour"])[engagement_col].mean().dropna()
     if grouped.empty:
         return None
     best = grouped.idxmax()
@@ -212,6 +262,7 @@ def best_posting_time(df: pd.DataFrame, date_col: str, engagement_col: str) -> d
 def period_comparison(
     series: pd.Series, dates: pd.Series, split_date: datetime
 ) -> dict:
+    series = _ensure_float(series)
     split = pd.Timestamp(split_date, tz="UTC")
     before = series[dates < split].dropna()
     after = series[dates >= split].dropna()
@@ -243,6 +294,8 @@ def period_comparison(
 def rolling_correlation(
     series_a: pd.Series, series_b: pd.Series, window: int = 7
 ) -> list[dict]:
+    series_a = _ensure_float(series_a)
+    series_b = _ensure_float(series_b)
     corr = series_a.rolling(window=window, min_periods=2).corr(series_b)
     result = []
     for i, val in corr.items():

@@ -15,11 +15,11 @@ async def lifespan(app: FastAPI):
 
     container = Container()
     container.wire()
-    await container.init_resources()
+    container.init_resources()
 
     yield
 
-    await container.shutdown_resources()
+    container.shutdown_resources()
 
 
 app = FastAPI(lifespan=lifespan)

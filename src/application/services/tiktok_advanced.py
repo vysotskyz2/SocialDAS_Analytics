@@ -93,6 +93,10 @@ class TikTokAdvancedService:
             })
 
         df = pd.DataFrame(records)
+        numeric_cols = ["likes", "comments", "shares", "views", "engagement"]
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
         eng = df["engagement"]
 
         stats = engine.descriptive_stats(eng)
@@ -174,6 +178,12 @@ class TikTokAdvancedService:
         df = pd.DataFrame(trends_data)
         df["date"] = pd.to_datetime(df["date"], utc=True)
         df = df.sort_values("date").reset_index(drop=True)
+
+        numeric_cols = ["total_likes", "total_comments", "total_shares", "total_views"]
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
         df["engagement"] = (df["total_likes"].fillna(0) + df["total_comments"].fillna(0) + df["total_shares"].fillna(0))
 
         reg = engine.linear_regression(df["engagement"])
