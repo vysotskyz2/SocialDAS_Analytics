@@ -87,6 +87,9 @@ class InstagramAdvancedService:
             records.append({"id": p["ig_id"], "likes": likes, "comments": comments, "engagement": likes + comments})
 
         df = pd.DataFrame(records)
+        for col in ["likes", "comments", "engagement"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
         eng = df["engagement"]
 
         stats = engine.descriptive_stats(eng)
@@ -185,6 +188,12 @@ class InstagramAdvancedService:
         df = pd.DataFrame(records)
         df["date"] = pd.to_datetime(df["date"], utc=True)
         df = df.sort_values("date").reset_index(drop=True)
+        
+        numeric_cols = ["reach", "views", "likes", "comments", "shares"]
+        for col in numeric_cols:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
         df["engagement"] = df["likes"] + df["comments"] + df["shares"]
 
         reg = engine.linear_regression(df["engagement"])
