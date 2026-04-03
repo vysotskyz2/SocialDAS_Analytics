@@ -158,16 +158,18 @@ def compute_percentile_ranks(series: pd.Series) -> pd.Series:
 
 
 def composite_score(df: pd.DataFrame, columns: list[str], weights: list[float] | None = None) -> pd.Series:
+    if df.empty:
+        return pd.Series([], dtype=np.float64)
+
     if weights is None:
         weights = [1.0] * len(columns)
 
-    df = df.copy()
-    scores = pd.DataFrame()
+    scores = pd.DataFrame(index=df.index)
     for col in columns:
         col_series = _ensure_float(df[col])
         col_min = col_series.min()
         col_max = col_series.max()
-        if col_max - col_min == 0:
+        if pd.isna(col_min) or pd.isna(col_max) or col_max - col_min == 0:
             scores[col] = 0.5
         else:
             scores[col] = (col_series - col_min) / (col_max - col_min)
@@ -175,7 +177,15 @@ def composite_score(df: pd.DataFrame, columns: list[str], weights: list[float] |
     weight_arr = np.array(weights, dtype=np.float64)
     weight_arr = weight_arr / weight_arr.sum()
 
-    result = scores[columns].values @ weight_arr
+    existing_cols = [c for c in columns if c in scores.columns]
+    if not existing_cols:
+        return pd.Series(0.0, index=df.index)
+
+    result = scores[existing_cols].values @ weight_arr[:len(existing_cols)]
+    
+    if len(result) == 0 and len(df) > 0:
+        return pd.Series(0.0, index=df.index)
+        
     return pd.Series(result * 100, index=df.index).round(2)
 
 
