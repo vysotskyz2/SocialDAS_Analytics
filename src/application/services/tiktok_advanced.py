@@ -87,9 +87,14 @@ class TikTokAdvancedService:
             shares = v["share_count"] or 0
             views = v["view_count"] or 0
             records.append({
-                "id": v["tt_video_id"], "likes": likes, "comments": comments,
-                "shares": shares, "views": views,
+                "id": v["tt_video_id"], 
+                "likes": likes, 
+                "comments": comments,
+                "shares": shares, 
+                "views": views,
                 "engagement": likes + comments + shares,
+                "title": v.get("title"),
+                "thumbnail_url": v.get("cover_image_url")
             })
 
         df = pd.DataFrame(records)
@@ -108,8 +113,10 @@ class TikTokAdvancedService:
         items = [
             ContentItem(
                 content_id=row["id"],
+                title=row.get("title"),
+                thumbnail_url=row.get("thumbnail_url"),
                 engagement=int(row["engagement"]),
-                percentile=round(float(percentiles.iloc[i]), 2),
+                percentile=round(float(percentiles.iloc[i]), 4),
                 z_score=round(float(z_scores.iloc[i]), 4),
                 composite_score=float(scores.iloc[i]),
                 is_anomaly=abs(float(z_scores.iloc[i])) > 2.0,

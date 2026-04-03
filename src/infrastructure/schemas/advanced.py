@@ -52,6 +52,9 @@ class QuartileInfo(BaseModel):
 
 class ContentItem(BaseModel):
     content_id: str
+    caption: str | None = None
+    title: str | None = None
+    thumbnail_url: str | None = None
     engagement: int
     percentile: float
     z_score: float

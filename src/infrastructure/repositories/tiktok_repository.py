@@ -53,7 +53,7 @@ class TikTokRepository(BaseRepository):
             select(
                 t.c.id, t.c.tt_video_id, t.c.title, t.c.duration, t.c.share_url,
                 t.c.create_time, t.c.like_count, t.c.comment_count,
-                t.c.share_count, t.c.view_count,
+                t.c.share_count, t.c.view_count, t.c.cover_image_url,
             )
             .where(t.c.user_id == user_id)
         )

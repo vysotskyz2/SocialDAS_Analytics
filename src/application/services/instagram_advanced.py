@@ -84,7 +84,14 @@ class InstagramAdvancedService:
         for p in posts:
             likes = p["like_count"] or 0
             comments = p["comments_count"] or 0
-            records.append({"id": p["ig_id"], "likes": likes, "comments": comments, "engagement": likes + comments})
+            records.append({
+                "id": p["ig_id"], 
+                "likes": likes, 
+                "comments": comments, 
+                "engagement": likes + comments,
+                "caption": p.get("caption"),
+                "thumbnail_url": p.get("thumbnail_url") or p.get("media_url")
+            })
 
         df = pd.DataFrame(records)
         for col in ["likes", "comments", "engagement"]:
@@ -102,8 +109,10 @@ class InstagramAdvancedService:
         for i, row in df.iterrows():
             items.append(ContentItem(
                 content_id=row["id"],
+                caption=row.get("caption"),
+                thumbnail_url=row.get("thumbnail_url"),
                 engagement=int(row["engagement"]),
-                percentile=round(float(percentiles.iloc[i]), 2),
+                percentile=round(float(percentiles.iloc[i]), 4),
                 z_score=round(float(z_scores.iloc[i]), 4),
                 composite_score=float(scores.iloc[i]),
                 is_anomaly=abs(float(z_scores.iloc[i])) > 2.0,

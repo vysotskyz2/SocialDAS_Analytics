@@ -86,8 +86,13 @@ class YouTubeAdvancedService:
             comments = int(row["comment_count"] or 0)
             views = int(row["view_count"] or 0)
             records.append({
-                "id": row["yt_video_id"], "likes": likes, "comments": comments,
-                "views": views, "engagement": likes + comments,
+                "id": row["yt_video_id"], 
+                "likes": likes, 
+                "comments": comments,
+                "views": views, 
+                "engagement": likes + comments,
+                "title": row["title"],
+                "thumbnail_url": row["thumbnail_url"]
             })
 
         df = pd.DataFrame(records)
@@ -105,8 +110,10 @@ class YouTubeAdvancedService:
         items = [
             ContentItem(
                 content_id=row["id"],
+                title=row.get("title"),
+                thumbnail_url=row.get("thumbnail_url"),
                 engagement=int(row["engagement"]),
-                percentile=round(float(percentiles.iloc[i]), 2),
+                percentile=round(float(percentiles.iloc[i]), 4),
                 z_score=round(float(z_scores.iloc[i]), 4),
                 composite_score=float(scores.iloc[i]),
                 is_anomaly=abs(float(z_scores.iloc[i])) > 2.0,

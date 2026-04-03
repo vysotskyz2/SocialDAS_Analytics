@@ -65,6 +65,7 @@ class InstagramRepository(BaseRepository):
             select(
                 t.c.id, t.c.ig_id, t.c.media_type, t.c.caption, t.c.permalink,
                 t.c.timestamp, t.c.like_count, t.c.comments_count,
+                t.c.thumbnail_url, t.c.media_url,
             )
             .where(t.c.user_id == user_id)
         )
