@@ -4,7 +4,6 @@ import pandas as pd
 
 
 def _ensure_float(series: pd.Series) -> pd.Series:
-    """Ensures the series is of float64 type, converting from Decimal or other types."""
     if series.dtype == object:
         return pd.to_numeric(series, errors="coerce").astype(np.float64)
     return series.astype(np.float64)
