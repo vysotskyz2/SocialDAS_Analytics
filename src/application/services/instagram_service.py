@@ -94,19 +94,52 @@ class InstagramAnalyticsService:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instagram account not found")
 
         insights = await self._repo.get_profile_insights(user["id"], date_from, date_to)
-        data = [
-            IGEngagementPoint(
-                date=i["date"],
+        post_trends = await self._repo.get_post_trends(user["id"], date_from, date_to)
+        
+        # Create a map of post trends for easy lookup
+        trends_map = {pt["date"].date(): pt for pt in post_trends}
+        
+        data = []
+        for i in insights:
+            dt = i["date"]
+            # Fallback to post stats if profile stats are missing
+            likes = i["likes"] if i["likes"] is not None else trends_map.get(dt.date(), {}).get("likes", 0)
+            comments = i["comments"] if i["comments"] is not None else trends_map.get(dt.date(), {}).get("comments", 0)
+            
+            reach = i["reach"] or 0
+            er = None
+            if reach > 0:
+                er = round((likes + comments) / reach * 100, 4)
+
+            data.append(IGEngagementPoint(
+                date=dt,
                 period=i["period"],
                 reach=i["reach"],
                 profile_views=i["profile_views"],
                 views=i["views"],
-                likes=i["likes"],
-                comments=i["comments"],
+                likes=likes,
+                comments=comments,
                 shares=i["shares"],
                 saves=i["saves"],
                 website_clicks=i["website_clicks"],
-            )
-            for i in insights
-        ]
+                engagement_rate=er
+            ))
+        
+        # If no insights but we have post trends, use those
+        if not data and post_trends:
+            for pt in post_trends:
+                data.append(IGEngagementPoint(
+                    date=pt["date"],
+                    period="day",
+                    reach=0,
+                    profile_views=0,
+                    views=0,
+                    likes=pt["likes"],
+                    comments=pt["comments"],
+                    shares=0,
+                    saves=0,
+                    website_clicks=0,
+                    engagement_rate=None
+                ))
+
         return IGEngagementResponse(account_id=account_id, data=data)

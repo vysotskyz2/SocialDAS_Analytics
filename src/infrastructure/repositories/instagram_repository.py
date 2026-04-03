@@ -95,11 +95,21 @@ class InstagramRepository(BaseRepository):
         self, user_id: UUID, date_from: datetime | None, date_to: datetime | None
     ) -> list[dict]:
         t = self._t("ig_profile_insights")
+        day_trunc = func.date_trunc("day", t.c.date).label("date")
         stmt = (
             select(
-                t.c.date, t.c.period, t.c.reach, t.c.profile_views, t.c.views,
-                t.c.likes, t.c.comments, t.c.shares, t.c.saves, t.c.website_clicks,
-                t.c.replies, t.c.reposts,
+                day_trunc,
+                t.c.period,
+                func.max(t.c.reach).label("reach"),
+                func.max(t.c.profile_views).label("profile_views"),
+                func.max(t.c.views).label("views"),
+                func.max(t.c.likes).label("likes"),
+                func.max(t.c.comments).label("comments"),
+                func.max(t.c.shares).label("shares"),
+                func.max(t.c.saves).label("saves"),
+                func.max(t.c.website_clicks).label("website_clicks"),
+                func.max(t.c.replies).label("replies"),
+                func.max(t.c.reposts).label("reposts"),
             )
             .where(t.c.user_id == user_id)
         )
@@ -107,6 +117,28 @@ class InstagramRepository(BaseRepository):
             stmt = stmt.where(t.c.date >= date_from)
         if date_to:
             stmt = stmt.where(t.c.date <= date_to)
-        stmt = stmt.order_by(t.c.date)
+        stmt = stmt.group_by(day_trunc, t.c.period).order_by(day_trunc)
+        result = await self._session.execute(stmt)
+        return [dict(r) for r in result.mappings().all()]
+
+    async def get_post_trends(
+        self, user_id: UUID, date_from: datetime | None, date_to: datetime | None
+    ) -> list[dict]:
+        t = self._t("ig_posts")
+        date_trunc = func.date_trunc("day", t.c.timestamp).label("date")
+        stmt = (
+            select(
+                date_trunc,
+                func.sum(t.c.like_count).label("likes"),
+                func.sum(t.c.comments_count).label("comments"),
+                func.count(t.c.id).label("posts_count"),
+            )
+            .where(t.c.user_id == user_id)
+        )
+        if date_from:
+            stmt = stmt.where(t.c.timestamp >= date_from)
+        if date_to:
+            stmt = stmt.where(t.c.timestamp <= date_to)
+        stmt = stmt.group_by(date_trunc).order_by(date_trunc)
         result = await self._session.execute(stmt)
         return [dict(r) for r in result.mappings().all()]

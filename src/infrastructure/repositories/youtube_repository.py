@@ -104,20 +104,37 @@ class YouTubeRepository(BaseRepository):
     ) -> list[dict]:
         vs = self._t("yt_video_snapshots")
         v = self._t("yt_videos")
-        stmt = (
+        
+        # Subquery to get max stats per video per day
+        day_trunc = func.date_trunc("day", vs.c.date).label("day")
+        per_video_per_day = (
             select(
-                vs.c.date,
-                func.sum(vs.c.view_count).label("total_views"),
-                func.sum(vs.c.like_count).label("total_likes"),
-                func.sum(vs.c.comment_count).label("total_comments"),
+                vs.c.video_id,
+                day_trunc,
+                func.max(vs.c.view_count).label("max_views"),
+                func.max(vs.c.like_count).label("max_likes"),
+                func.max(vs.c.comment_count).label("max_comments"),
             )
             .select_from(vs.join(v, vs.c.video_id == v.c.id))
             .where(v.c.channel_id == channel_id)
+            .group_by(vs.c.video_id, day_trunc)
+        ).subquery("pvpd")
+
+        stmt = (
+            select(
+                per_video_per_day.c.day.label("date"),
+                func.sum(per_video_per_day.c.max_views).label("total_views"),
+                func.sum(per_video_per_day.c.max_likes).label("total_likes"),
+                func.sum(per_video_per_day.c.max_comments).label("total_comments"),
+            )
+            .group_by(per_video_per_day.c.day)
+            .order_by(per_video_per_day.c.day)
         )
+        
         if date_from:
-            stmt = stmt.where(vs.c.date >= date_from)
+            stmt = stmt.where(per_video_per_day.c.day >= date_from)
         if date_to:
-            stmt = stmt.where(vs.c.date <= date_to)
-        stmt = stmt.group_by(vs.c.date).order_by(vs.c.date)
+            stmt = stmt.where(per_video_per_day.c.day <= date_to)
+            
         result = await self._session.execute(stmt)
         return [dict(r) for r in result.mappings().all()]
