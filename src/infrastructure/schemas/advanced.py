@@ -52,14 +52,15 @@ class QuartileInfo(BaseModel):
 
 class ContentItem(BaseModel):
     content_id: str
-    caption: str | None = None
     title: str | None = None
+    caption: str | None = None
     thumbnail_url: str | None = None
+    permalink: str | None = None
     engagement: int
     percentile: float
     z_score: float
     composite_score: float
-    is_anomaly: bool
+    is_anomaly: bool = False
 
 
 class ContentPerformanceResponse(BaseModel):

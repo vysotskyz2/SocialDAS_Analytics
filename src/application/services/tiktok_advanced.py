@@ -81,19 +81,22 @@ class TikTokAdvancedService:
             )
 
         records = []
+        username = user.get("display_name") or "user"
         for v in videos:
             likes = v["like_count"] or 0
             comments = v["comment_count"] or 0
             shares = v["share_count"] or 0
             views = v["view_count"] or 0
+            video_id = v["tt_video_id"]
             records.append({
-                "id": v["tt_video_id"], 
+                "id": video_id, 
                 "likes": likes, 
                 "comments": comments,
                 "shares": shares, 
                 "views": views,
                 "engagement": likes + comments + shares,
                 "title": v.get("title"),
+                "permalink": f"https://www.tiktok.com/video/{video_id}",
                 "thumbnail_url": v.get("cover_image_url")
             })
 
@@ -114,6 +117,8 @@ class TikTokAdvancedService:
             ContentItem(
                 content_id=row["id"],
                 title=row.get("title"),
+                caption=row.get("title"),
+                permalink=row.get("permalink"),
                 thumbnail_url=row.get("thumbnail_url"),
                 engagement=int(row["engagement"]),
                 percentile=round(float(percentiles.iloc[i]), 4),
@@ -192,6 +197,13 @@ class TikTokAdvancedService:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
 
         df["engagement"] = (df["total_likes"].fillna(0) + df["total_comments"].fillna(0) + df["total_shares"].fillna(0))
+
+        if len(df) < 2:
+            return TrendsResponse(
+                account_id=account_id,
+                regression=RegressionInfo(slope=0.0, intercept=0.0, r_squared=0.0, direction="insufficient_data"),
+                anomalies=[], period_comparison=None, correlations=[],
+            )
 
         reg = engine.linear_regression(df["engagement"])
 

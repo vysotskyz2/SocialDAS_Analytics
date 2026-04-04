@@ -82,7 +82,7 @@ class YouTubeRepository(BaseRepository):
 
         stmt = (
             select(
-                v.c.yt_video_id, v.c.title, v.c.published_at, v.c.duration, v.c.thumbnail_url,
+                v.c.yt_video_id, v.c.title, v.c.description, v.c.published_at, v.c.duration, v.c.thumbnail_url,
                 vs.c.view_count, vs.c.like_count, vs.c.comment_count,
             )
             .select_from(

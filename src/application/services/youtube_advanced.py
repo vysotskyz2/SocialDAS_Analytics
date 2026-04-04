@@ -85,13 +85,16 @@ class YouTubeAdvancedService:
             likes = int(row["like_count"] or 0)
             comments = int(row["comment_count"] or 0)
             views = int(row["view_count"] or 0)
+            video_id = row["yt_video_id"]
             records.append({
-                "id": row["yt_video_id"], 
+                "id": video_id, 
                 "likes": likes, 
                 "comments": comments,
                 "views": views, 
                 "engagement": likes + comments,
                 "title": row["title"],
+                "caption": row["description"],
+                "permalink": f"https://www.youtube.com/watch?v={video_id}",
                 "thumbnail_url": row["thumbnail_url"]
             })
 
@@ -111,7 +114,9 @@ class YouTubeAdvancedService:
             ContentItem(
                 content_id=row["id"],
                 title=row.get("title"),
+                caption=row.get("caption"),
                 thumbnail_url=row.get("thumbnail_url"),
+                permalink=row.get("permalink"),
                 engagement=int(row["engagement"]),
                 percentile=round(float(percentiles.iloc[i]), 4),
                 z_score=round(float(z_scores.iloc[i]), 4),

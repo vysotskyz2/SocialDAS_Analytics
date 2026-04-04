@@ -52,7 +52,14 @@ async def trends(
     account_id: str,
     date_from: datetime | None = Query(None),
     date_to: datetime | None = Query(None),
-    split_date: datetime | None = Query(None, description="Date to split period-over-period comparison"),
+    split_date: str | None = Query(None),
     service: InstagramAdvancedService = Depends(Provide[Container.instagram_advanced_service]),
 ):
-    return await service.get_trends(account_id, date_from, date_to, split_date)
+    sd = None
+    if split_date:
+        try:
+            # Handle ISO format with 'Z'
+            sd = datetime.fromisoformat(split_date.replace('Z', '+00:00'))
+        except ValueError:
+            pass
+    return await service.get_trends(account_id, date_from, date_to, sd)

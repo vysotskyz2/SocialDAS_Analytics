@@ -272,9 +272,17 @@ def period_comparison(
     series: pd.Series, dates: pd.Series, split_date: datetime
 ) -> dict:
     series = _ensure_float(series)
-    split = pd.Timestamp(split_date, tz="UTC")
-    before = series[dates < split].dropna()
-    after = series[dates >= split].dropna()
+    
+    # Handle split_date which might already have tzinfo
+    split = pd.Timestamp(split_date)
+    if split.tzinfo is None:
+        split = split.tz_localize("UTC")
+    else:
+        split = split.tz_convert("UTC")
+        
+    dates_utc = pd.to_datetime(dates, utc=True)
+    before = series[dates_utc < split].dropna()
+    after = series[dates_utc >= split].dropna()
 
     def _stats(s: pd.Series) -> dict:
         if len(s) == 0:
@@ -305,7 +313,12 @@ def rolling_correlation(
 ) -> list[dict]:
     series_a = _ensure_float(series_a)
     series_b = _ensure_float(series_b)
-    corr = series_a.rolling(window=window, min_periods=2).corr(series_b)
+    
+    # Check if either series has zero variance to avoid RuntimeWarning in divide
+    if series_a.std() == 0 or series_b.std() == 0:
+        return []
+        
+    corr = series_a.rolling(window=window, min_periods=window//2 or 2).corr(series_b)
     result = []
     for i, val in corr.items():
         if pd.notna(val):

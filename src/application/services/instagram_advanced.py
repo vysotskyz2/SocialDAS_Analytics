@@ -90,6 +90,7 @@ class InstagramAdvancedService:
                 "comments": comments, 
                 "engagement": likes + comments,
                 "caption": p.get("caption"),
+                "permalink": p.get("permalink"),
                 "thumbnail_url": p.get("thumbnail_url") or p.get("media_url")
             })
 
@@ -110,6 +111,7 @@ class InstagramAdvancedService:
             items.append(ContentItem(
                 content_id=row["id"],
                 caption=row.get("caption"),
+                permalink=row.get("permalink"),
                 thumbnail_url=row.get("thumbnail_url"),
                 engagement=int(row["engagement"]),
                 percentile=round(float(percentiles.iloc[i]), 4),
