@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 import pandas as pd
 from fastapi import HTTPException, status
@@ -28,7 +29,9 @@ class InstagramAdvancedService:
         snapshots = await self._repo.get_follower_snapshots(user["id"], date_from, date_to)
 
         records = [{"date": s["date"], "followers": s["followers_count"]} for s in snapshots]
-        df = engine.build_time_series(records, "date", "followers")
+        
+        # Offload build_time_series to thread
+        df = await asyncio.to_thread(engine.build_time_series, records, "date", "followers")
 
         if df.empty:
             return GrowthResponse(
@@ -37,15 +40,20 @@ class InstagramAdvancedService:
                 projections=[], data=[],
             )
 
-        growth = engine.compute_growth_rates(df["followers"])
-        sma7 = engine.sma(df["followers"], 7)
-        sma30 = engine.sma(df["followers"], 30)
-        ema7 = engine.ema(df["followers"], 7)
-        reg = engine.linear_regression(df["followers"])
+        # Offload math processing to threads
+        growth_task = asyncio.to_thread(engine.compute_growth_rates, df["followers"])
+        sma7_task = asyncio.to_thread(engine.sma, df["followers"], 7)
+        sma30_task = asyncio.to_thread(engine.sma, df["followers"], 30)
+        ema7_task = asyncio.to_thread(engine.ema, df["followers"], 7)
+        reg_task = asyncio.to_thread(engine.linear_regression, df["followers"])
+
+        growth, sma7, sma30, ema7, reg = await asyncio.gather(
+            growth_task, sma7_task, sma30_task, ema7_task, reg_task
+        )
 
         ts = df["followers"].copy()
         ts.index = pd.to_datetime(df["date"])
-        projections = engine.project_values(ts, projection_days)
+        projections = await asyncio.to_thread(engine.project_values, ts, projection_days)
 
         data = []
         for i, row in df.iterrows():
@@ -94,17 +102,24 @@ class InstagramAdvancedService:
                 "thumbnail_url": p.get("thumbnail_url") or p.get("media_url")
             })
 
-        df = pd.DataFrame(records)
-        for col in ["likes", "comments", "engagement"]:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-        eng = df["engagement"]
+        def process_content_stats(records_list):
+            df = pd.DataFrame(records_list)
+            for col in ["likes", "comments", "engagement"]:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+            eng = df["engagement"]
 
-        stats = engine.descriptive_stats(eng)
-        quartiles = engine.quartile_distribution(eng)
-        z_scores = engine.compute_z_scores(eng)
-        percentiles = engine.compute_percentile_ranks(eng)
-        scores = engine.composite_score(df, ["likes", "comments"])
+            stats = engine.descriptive_stats(eng)
+            quartiles = engine.quartile_distribution(eng)
+            z_scores = engine.compute_z_scores(eng)
+            percentiles = engine.compute_percentile_ranks(eng)
+            scores = engine.composite_score(df, ["likes", "comments"])
+            
+            return df, stats, quartiles, z_scores, percentiles, scores
+
+        df, stats, quartiles, z_scores, percentiles, scores = await asyncio.to_thread(
+            process_content_stats, records
+        )
 
         items = []
         for i, row in df.iterrows():
@@ -145,21 +160,32 @@ class InstagramAdvancedService:
             {"date": p["timestamp"], "engagement": (p["like_count"] or 0) + (p["comments_count"] or 0)}
             for p in posts if p["timestamp"]
         ]
-        df = pd.DataFrame(records)
+        
+        def process_patterns(records_list):
+            df = pd.DataFrame(records_list)
+            if df.empty:
+                return df, None, [], [], [], None
+
+            dates = pd.to_datetime(df["date"], utc=True)
+            span_weeks = max((dates.max() - dates.min()).days / 7.0, 1.0)
+            avg_per_week = round(len(df) / span_weeks, 2)
+
+            by_dow = engine.engagement_by_day_of_week(df, "date", "engagement")
+            by_hour = engine.engagement_by_hour(df, "date", "engagement")
+            heatmap = engine.engagement_heatmap(df, "date", "engagement")
+            best = engine.best_posting_time(df, "date", "engagement")
+            
+            return df, avg_per_week, by_dow, by_hour, heatmap, best
+
+        df, avg_per_week, by_dow, by_hour, heatmap, best = await asyncio.to_thread(
+            process_patterns, records
+        )
+
         if df.empty:
             return PostingPatternsResponse(
                 account_id=account_id, total_content=len(posts), avg_posts_per_week=None,
                 by_day_of_week=[], by_hour=[], best_time=None, heatmap=[],
             )
-
-        dates = pd.to_datetime(df["date"], utc=True)
-        span_weeks = max((dates.max() - dates.min()).days / 7.0, 1.0)
-        avg_per_week = round(len(df) / span_weeks, 2)
-
-        by_dow = engine.engagement_by_day_of_week(df, "date", "engagement")
-        by_hour = engine.engagement_by_hour(df, "date", "engagement")
-        heatmap = engine.engagement_heatmap(df, "date", "engagement")
-        best = engine.best_posting_time(df, "date", "engagement")
 
         return PostingPatternsResponse(
             account_id=account_id,
@@ -196,20 +222,52 @@ class InstagramAdvancedService:
                 "shares": i["shares"] or 0,
             })
 
-        df = pd.DataFrame(records)
-        df["date"] = pd.to_datetime(df["date"], utc=True)
-        df = df.sort_values("date").reset_index(drop=True)
-        
-        numeric_cols = ["reach", "views", "likes", "comments", "shares"]
-        for col in numeric_cols:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
+        def process_trends_stats(records_list, split_dt):
+            df = pd.DataFrame(records_list)
+            df["date"] = pd.to_datetime(df["date"], utc=True)
+            df = df.sort_values("date").reset_index(drop=True)
+            
+            numeric_cols = ["reach", "views", "likes", "comments", "shares"]
+            for col in numeric_cols:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
 
-        df["engagement"] = df["likes"] + df["comments"] + df["shares"]
+            df["engagement"] = df["likes"] + df["comments"] + df["shares"]
 
-        reg = engine.linear_regression(df["engagement"])
+            reg = engine.linear_regression(df["engagement"])
+            z = engine.compute_z_scores(df["engagement"])
+            
+            # Engagement averages and projections
+            sma7 = engine.sma(df["engagement"], 7)
+            sma30 = engine.sma(df["engagement"], 30)
+            
+            ts = df["engagement"].copy()
+            ts.index = df["date"]
+            projections = engine.project_values(ts, 14)
+            
+            period_comp_data = None
+            if split_dt:
+                period_comp_data = engine.period_comparison(df["engagement"], df["date"], split_dt)
+                
+            # Correlations
+            corrs = []
+            pairs = [("reach", "engagement"), ("views", "likes")]
+            for a, b in pairs:
+                if a in df.columns and b in df.columns:
+                    overall = float(df[a].corr(df[b])) if len(df) > 1 else None
+                    rolling = engine.rolling_correlation(df[a], df[b], window=7)
+                    corrs.append({
+                        "metric_a": a, "metric_b": b,
+                        "overall_correlation": overall,
+                        "rolling": rolling
+                    })
+            
+            return df, reg, z, period_comp_data, corrs, projections, sma7, sma30
 
-        z = engine.compute_z_scores(df["engagement"])
+        df, reg, z, comp, corrs_data, projections_data, sma7_data, sma30_data = await asyncio.to_thread(
+            process_trends_stats, records, split_date
+        )
+
         anomaly_mask = z.abs() > 2.0
         anomalies = [
             AnomalyItem(
@@ -221,9 +279,18 @@ class InstagramAdvancedService:
             for i in df.index[anomaly_mask]
         ]
 
+        historical_data = [
+            GrowthPoint(
+                date=df.loc[i, "date"],
+                value=int(df.loc[i, "engagement"]),
+                sma_7=round(float(sma7_data.iloc[i]), 2) if pd.notna(sma7_data.iloc[i]) else None,
+                sma_30=round(float(sma30_data.iloc[i]), 2) if pd.notna(sma30_data.iloc[i]) else None,
+            )
+            for i in df.index
+        ]
+
         period_comp = None
-        if split_date:
-            comp = engine.period_comparison(df["engagement"], df["date"], split_date)
+        if comp:
             period_comp = PeriodComparison(
                 before=PeriodStats(**comp["before"]),
                 after=PeriodStats(**comp["after"]),
@@ -231,16 +298,12 @@ class InstagramAdvancedService:
             )
 
         correlations = []
-        pairs = [("reach", "engagement"), ("views", "likes")]
-        for a, b in pairs:
-            if a in df.columns and b in df.columns:
-                overall = float(df[a].corr(df[b])) if len(df) > 1 else None
-                rolling = engine.rolling_correlation(df[a], df[b], window=7)
-                correlations.append(CorrelationPair(
-                    metric_a=a, metric_b=b,
-                    overall_correlation=round(overall, 4) if overall is not None and pd.notna(overall) else None,
-                    rolling=[CorrelationPoint(**r) for r in rolling],
-                ))
+        for c in corrs_data:
+            correlations.append(CorrelationPair(
+                metric_a=c["metric_a"], metric_b=c["metric_b"],
+                overall_correlation=round(c["overall_correlation"], 4) if c["overall_correlation"] is not None and pd.notna(c["overall_correlation"]) else None,
+                rolling=[CorrelationPoint(**r) for r in c["rolling"]],
+            ))
 
         return TrendsResponse(
             account_id=account_id,
@@ -248,4 +311,6 @@ class InstagramAdvancedService:
             anomalies=anomalies,
             period_comparison=period_comp,
             correlations=correlations,
+            projections=[ProjectionPoint(**p) for p in projections_data],
+            data=historical_data,
         )

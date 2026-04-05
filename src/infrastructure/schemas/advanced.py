@@ -5,14 +5,15 @@ from pydantic import BaseModel
 class GrowthPoint(BaseModel):
     date: datetime
     value: int | None
-    growth_rate_pct: float | None
-    sma_7: float | None
-    sma_30: float | None
-    ema_7: float | None
+    growth_rate_pct: float | None = None
+    sma_7: float | None = None
+    sma_30: float | None = None
+    ema_7: float | None = None
 
 
 class RegressionInfo(BaseModel):
     slope: float | None
+    relative_slope: float | None = 0.0
     intercept: float | None
     r_squared: float | None
     direction: str
@@ -137,3 +138,5 @@ class TrendsResponse(BaseModel):
     anomalies: list[AnomalyItem]
     period_comparison: PeriodComparison | None
     correlations: list[CorrelationPair]
+    projections: list[ProjectionPoint] = []
+    data: list[GrowthPoint] = []
