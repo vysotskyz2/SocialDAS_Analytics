@@ -23,11 +23,8 @@ def build_time_series(
     df[value_col] = pd.to_numeric(df[value_col], errors="coerce")
 
     if fill_gaps and len(df) > 1:
-        # Normalize to date only to aggregate by day
         df[date_col] = df[date_col].dt.normalize()
-        # Keep last value per day
         df = df.drop_duplicates(subset=[date_col], keep="last").set_index(date_col)
-        # Resample to daily frequency and fill gaps
         df = df.resample("D").asfreq()
         df[value_col] = df[value_col].ffill()
         df = df.reset_index()
@@ -82,12 +79,11 @@ def linear_regression(series: pd.Series) -> dict:
         ss_tot = np.sum((y - mean_y) ** 2)
         r_squared = float(1 - ss_res / ss_tot) if ss_tot > 0 else 0.0
         
-        # Calculate relative slope (percentage of mean change per day)
+
         relative_slope = slope / mean_y if mean_y != 0 else 0
     except (ValueError, np.linalg.LinAlgError, ZeroDivisionError):
         return {"slope": 0.0, "relative_slope": 0.0, "intercept": 0.0, "r_squared": 0.0, "direction": "stable"}
 
-    # Use a 0.5% threshold for significant growth/decline
     if abs(relative_slope) < 0.005:
         direction = "stable"
     elif relative_slope > 0:
@@ -111,11 +107,8 @@ def project_values(series: pd.Series, days_ahead: int) -> list[dict]:
         return []
 
     projections = []
-    # If using DateTime index, use it for date calculation
     last_date = clean.index[-1] if isinstance(clean.index, pd.DatetimeIndex) else None
     
-    # If no datetime index but we have 'date' column in a DataFrame (if this was part of a DF)
-    # But here we only have Series. Let's try to get date from Series name or last point
     last_val = float(clean.iloc[-1])
 
     if len(clean) < 2:
@@ -131,16 +124,13 @@ def project_values(series: pd.Series, days_ahead: int) -> list[dict]:
     
     try:
         coeffs = np.polyfit(x, y, 1)
-        # Linear projection starting from the model's last point
         for i in range(1, days_ahead + 1):
-            # Use the model to predict next values
             val = float(np.polyval(coeffs, len(clean) - 1 + i))
             point = {"day_offset": i, "projected_value": max(0, round(val, 2))}
             if last_date is not None:
                 point["date"] = (pd.to_datetime(last_date) + pd.Timedelta(days=i)).isoformat()
             projections.append(point)
     except:
-        # Fallback to horizontal projection if polyfit fails
         for i in range(1, days_ahead + 1):
             point = {"day_offset": i, "projected_value": round(last_val, 2)}
             if last_date is not None:
@@ -154,10 +144,8 @@ def calculate_correlations(df: pd.DataFrame, metrics: list[str]) -> list[dict]:
     if len(df) < 3:
         return []
     
-    # Ensure numeric and handle missing values
     subset = df[metrics].apply(pd.to_numeric, errors='coerce').ffill().fillna(0)
     
-    # Filter out metrics with zero variance
     valid = [m for m in metrics if subset[m].std() > 0]
     if len(valid) < 2:
         return []
@@ -332,7 +320,6 @@ def period_comparison(
 ) -> dict:
     series = _ensure_float(series)
     
-    # Handle split_date which might already have tzinfo
     split = pd.Timestamp(split_date)
     if split.tzinfo is None:
         split = split.tz_localize("UTC")
@@ -373,7 +360,6 @@ def rolling_correlation(
     series_a = _ensure_float(series_a)
     series_b = _ensure_float(series_b)
     
-    # Check if either series has zero variance to avoid RuntimeWarning in divide
     if series_a.std() == 0 or series_b.std() == 0:
         return []
         

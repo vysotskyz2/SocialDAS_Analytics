@@ -10,6 +10,8 @@ class IGOverview(BaseModel):
     media_count: int | None
     total_likes: int
     total_comments: int
+    total_views: int | None
+    avg_views: float | None
     avg_engagement_rate: float | None
 
 

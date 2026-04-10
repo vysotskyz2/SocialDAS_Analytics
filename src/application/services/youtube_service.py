@@ -8,6 +8,7 @@ from src.infrastructure.schemas.youtube import (
 
 
 class YouTubeAnalyticsService:
+
     def __init__(self, repository: YouTubeRepository) -> None:
         self._repo = repository
 
@@ -15,22 +16,21 @@ class YouTubeAnalyticsService:
         channel = await self._repo.get_channel_by_yt_id(account_id)
         if not channel:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="YouTube channel not found")
-
         snapshot = await self._repo.get_latest_snapshot(channel["id"])
         count, total_views, total_likes, total_comments = await self._repo.get_video_stats(channel["id"])
-
         avg_views = round(total_views / count, 2) if count > 0 else None
         avg_er = None
         if total_views > 0:
             avg_er = round((total_likes + total_comments) / total_views * 100, 4)
-
         return YTOverview(
             account_id=account_id,
             title=channel["title"],
-            subscribers=snapshot["subscriber_count"] if snapshot else None,
-            total_views=snapshot["view_count"] if snapshot else None,
+            subscribers=snapshot["subscriber_count"] if snapshot else 0,
+            total_views=snapshot["view_count"] if (snapshot and snapshot["view_count"]) else total_views,
             video_count=count,
-            avg_views_per_video=avg_views,
+            total_likes=total_likes,
+            total_comments=total_comments,
+            avg_views=avg_views,
             avg_engagement_rate=avg_er,
         )
 
@@ -40,7 +40,6 @@ class YouTubeAnalyticsService:
         channel = await self._repo.get_channel_by_yt_id(account_id)
         if not channel:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="YouTube channel not found")
-
         snapshots = await self._repo.get_subscriber_snapshots(channel["id"], date_from, date_to)
         data = [
             YTSubscribersPoint(
@@ -59,10 +58,8 @@ class YouTubeAnalyticsService:
         channel = await self._repo.get_channel_by_yt_id(account_id)
         if not channel:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="YouTube channel not found")
-
         rows = await self._repo.get_top_videos(channel["id"], date_from, date_to, limit)
         count, *_ = await self._repo.get_video_stats(channel["id"])
-
         items = []
         for row in rows:
             views = int(row["view_count"] or 0)
@@ -78,7 +75,6 @@ class YouTubeAnalyticsService:
                 comment_count=row["comment_count"],
                 engagement_rate=er,
             ))
-
         return YTVideosResponse(account_id=account_id, total_videos=count, data=items)
 
     async def get_engagement(
@@ -87,7 +83,6 @@ class YouTubeAnalyticsService:
         channel = await self._repo.get_channel_by_yt_id(account_id)
         if not channel:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="YouTube channel not found")
-
         trends = await self._repo.get_video_snapshot_trends(channel["id"], date_from, date_to)
         data = []
         for t in trends:
@@ -101,5 +96,4 @@ class YouTubeAnalyticsService:
                 total_comments=t["total_comments"],
                 engagement_rate=er,
             ))
-
         return YTEngagementResponse(account_id=account_id, data=data)

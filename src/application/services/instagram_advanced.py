@@ -30,7 +30,6 @@ class InstagramAdvancedService:
 
         records = [{"date": s["date"], "followers": s["followers_count"]} for s in snapshots]
         
-        # Offload build_time_series to thread
         df = await asyncio.to_thread(engine.build_time_series, records, "date", "followers")
 
         if df.empty:
@@ -40,7 +39,6 @@ class InstagramAdvancedService:
                 projections=[], data=[],
             )
 
-        # Offload math processing to threads
         growth_task = asyncio.to_thread(engine.compute_growth_rates, df["followers"])
         sma7_task = asyncio.to_thread(engine.sma, df["followers"], 7)
         sma30_task = asyncio.to_thread(engine.sma, df["followers"], 30)
@@ -237,7 +235,6 @@ class InstagramAdvancedService:
             reg = engine.linear_regression(df["engagement"])
             z = engine.compute_z_scores(df["engagement"])
             
-            # Engagement averages and projections
             sma7 = engine.sma(df["engagement"], 7)
             sma30 = engine.sma(df["engagement"], 30)
             
@@ -249,7 +246,6 @@ class InstagramAdvancedService:
             if split_dt:
                 period_comp_data = engine.period_comparison(df["engagement"], df["date"], split_dt)
                 
-            # Correlations
             corrs = []
             pairs = [("reach", "engagement"), ("views", "likes")]
             for a, b in pairs:

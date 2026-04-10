@@ -13,6 +13,7 @@ from src.infrastructure.schemas.advanced import (
 
 
 class YouTubeAdvancedService:
+
     def __init__(self, repository: YouTubeRepository) -> None:
         self._repo = repository
 
@@ -38,7 +39,6 @@ class YouTubeAdvancedService:
                 projections=[], data=[],
             )
 
-        # Math tasks offloaded to threads
         growth_task = asyncio.to_thread(engine.compute_growth_rates, df["subscribers"])
         sma7_task = asyncio.to_thread(engine.sma, df["subscribers"], 7)
         sma30_task = asyncio.to_thread(engine.sma, df["subscribers"], 30)
@@ -228,11 +228,9 @@ class YouTubeAdvancedService:
             reg = engine.linear_regression(df["engagement"])
             z = engine.compute_z_scores(df["engagement"])
             
-            # Engagement averages and projections
             sma7 = engine.sma(df["engagement"], 7)
             sma30 = engine.sma(df["engagement"], 30)
             
-            # Engagement projections
             ts = df["engagement"].copy()
             ts.index = df["date"]
             projections = engine.project_values(ts, 14)

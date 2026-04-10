@@ -6,8 +6,8 @@ from src.infrastructure.schemas.tiktok import (
     TTVideosResponse, TTVideoItem, TTEngagementResponse, TTEngagementPoint,
 )
 
-
 class TikTokAnalyticsService:
+
     def __init__(self, repository: TikTokRepository) -> None:
         self._repo = repository
 
@@ -15,21 +15,35 @@ class TikTokAnalyticsService:
         user = await self._repo.get_user_by_open_id(account_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TikTok account not found")
-
         count, total_views, total_likes, total_comments, total_shares = await self._repo.get_video_stats(user["id"])
-
-        avg_views = round(total_views / count, 2) if count > 0 else None
+        followers = user["follower_count"]
+        following = user["following_count"]
+        profile_likes = user["likes_count"]
+        video_count = user["video_count"]
+        if not followers or followers == 0:
+            snapshots = await self._repo.get_follower_snapshots(user["id"], None, None)
+            if snapshots:
+                followers = snapshots[-1]["follower_count"]
+                following = snapshots[-1]["following_count"]
+                if not profile_likes: profile_likes = snapshots[-1]["likes_count"]
+                if not video_count: video_count = snapshots[-1]["video_count"]
+        if not profile_likes or profile_likes == 0:
+            profile_likes = total_likes
+        if not video_count or video_count == 0:
+            video_count = count
+        avg_views = round(total_views / video_count, 2) if video_count > 0 else (round(total_views / count, 2) if count > 0 else None)
         avg_er = None
         if total_views > 0:
             avg_er = round((total_likes + total_comments + total_shares) / total_views * 100, 4)
-
         return TTOverview(
             account_id=account_id,
             display_name=user["display_name"],
-            followers=user["follower_count"],
-            following=user["following_count"],
-            total_likes=user["likes_count"],
-            video_count=user["video_count"],
+            followers=followers,
+            following=following,
+            total_likes=profile_likes,
+            total_comments=total_comments,
+            total_views=total_views,
+            video_count=video_count,
             avg_views=avg_views,
             avg_engagement_rate=avg_er,
         )
@@ -40,7 +54,6 @@ class TikTokAnalyticsService:
         user = await self._repo.get_user_by_open_id(account_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TikTok account not found")
-
         snapshots = await self._repo.get_follower_snapshots(user["id"], date_from, date_to)
         data = [
             TTFollowersPoint(
@@ -60,10 +73,8 @@ class TikTokAnalyticsService:
         user = await self._repo.get_user_by_open_id(account_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TikTok account not found")
-
         videos = await self._repo.get_top_videos(user["id"], date_from, date_to, limit)
         count, *_ = await self._repo.get_video_stats(user["id"])
-
         items = []
         for v in videos:
             views = v["view_count"] or 0
@@ -81,7 +92,6 @@ class TikTokAnalyticsService:
                 view_count=v["view_count"],
                 engagement_rate=er,
             ))
-
         return TTVideosResponse(account_id=account_id, total_videos=count, data=items)
 
     async def get_engagement(
@@ -90,7 +100,6 @@ class TikTokAnalyticsService:
         user = await self._repo.get_user_by_open_id(account_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="TikTok account not found")
-
         trends = await self._repo.get_video_snapshot_trends(user["id"], date_from, date_to)
         data = []
         for t in trends:
@@ -105,5 +114,4 @@ class TikTokAnalyticsService:
                 total_views=t["total_views"],
                 engagement_rate=er,
             ))
-
         return TTEngagementResponse(account_id=account_id, data=data)

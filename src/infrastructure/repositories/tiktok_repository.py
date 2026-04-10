@@ -1,8 +1,15 @@
+from datetime import timezone, timedelta
 from datetime import datetime
 from uuid import UUID
 from sqlalchemy import select, func, desc
 from src.infrastructure.repositories.base import BaseRepository
 
+
+
+def _to_msk_naive(dt):
+    if dt and dt.tzinfo:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None) + timedelta(hours=3)
+    return dt
 
 class TikTokRepository(BaseRepository):
 
@@ -37,8 +44,10 @@ class TikTokRepository(BaseRepository):
             select(t.c.date, t.c.follower_count, t.c.following_count, t.c.likes_count, t.c.video_count)
             .where(t.c.user_id == user_id)
         )
+        date_from = _to_msk_naive(date_from)
         if date_from:
             stmt = stmt.where(t.c.date >= date_from)
+        date_to = _to_msk_naive(date_to)
         if date_to:
             stmt = stmt.where(t.c.date <= date_to)
         stmt = stmt.order_by(t.c.date)
@@ -57,8 +66,10 @@ class TikTokRepository(BaseRepository):
             )
             .where(t.c.user_id == user_id)
         )
+        date_from = _to_msk_naive(date_from)
         if date_from:
             stmt = stmt.where(t.c.create_time >= date_from)
+        date_to = _to_msk_naive(date_to)
         if date_to:
             stmt = stmt.where(t.c.create_time <= date_to)
         stmt = stmt.order_by(desc(func.coalesce(t.c.view_count, 0))).limit(limit)
@@ -70,39 +81,56 @@ class TikTokRepository(BaseRepository):
     ) -> list[dict]:
         vs = self._t("tt_video_snapshots")
         v = self._t("tt_videos")
-        
-        # Subquery to get max stats per video per day
         day_trunc = func.date_trunc("day", vs.c.date).label("day")
-        per_video_per_day = (
+        create_day = func.date_trunc("day", v.c.create_time).label("create_day")
+        daily_max = (
             select(
                 vs.c.video_id,
                 day_trunc,
+                create_day,
+                func.max(vs.c.view_count).label("max_views"),
                 func.max(vs.c.like_count).label("max_likes"),
                 func.max(vs.c.comment_count).label("max_comments"),
                 func.max(vs.c.share_count).label("max_shares"),
-                func.max(vs.c.view_count).label("max_views"),
             )
             .select_from(vs.join(v, vs.c.video_id == v.c.id))
             .where(v.c.user_id == user_id)
-            .group_by(vs.c.video_id, day_trunc)
-        ).subquery("pvpd")
+            .group_by(vs.c.video_id, day_trunc, create_day)
+        ).subquery("daily_max")
+        prev_views = func.lag(daily_max.c.max_views).over(partition_by=daily_max.c.video_id, order_by=daily_max.c.day)
+        prev_likes = func.lag(daily_max.c.max_likes).over(partition_by=daily_max.c.video_id, order_by=daily_max.c.day)
+        prev_comments = func.lag(daily_max.c.max_comments).over(partition_by=daily_max.c.video_id, order_by=daily_max.c.day)
+        prev_shares = func.lag(daily_max.c.max_shares).over(partition_by=daily_max.c.video_id, order_by=daily_max.c.day)
+        days_diff = func.extract('epoch', daily_max.c.day - daily_max.c.create_day) / 86400
 
+        from sqlalchemy import case
+
+        is_new_video = days_diff <= 3
+        deltas = (
+            select(
+                daily_max.c.day,
+                case((prev_views != None, daily_max.c.max_views - prev_views), (is_new_video, daily_max.c.max_views), else_=0).label("delta_views"),
+                case((prev_likes != None, daily_max.c.max_likes - prev_likes), (is_new_video, daily_max.c.max_likes), else_=0).label("delta_likes"),
+                case((prev_comments != None, daily_max.c.max_comments - prev_comments), (is_new_video, daily_max.c.max_comments), else_=0).label("delta_comments"),
+                case((prev_shares != None, daily_max.c.max_shares - prev_shares), (is_new_video, daily_max.c.max_shares), else_=0).label("delta_shares"),
+            )
+        ).subquery("deltas")
         stmt = (
             select(
-                per_video_per_day.c.day.label("date"),
-                func.sum(per_video_per_day.c.max_likes).label("total_likes"),
-                func.sum(per_video_per_day.c.max_comments).label("total_comments"),
-                func.sum(per_video_per_day.c.max_shares).label("total_shares"),
-                func.sum(per_video_per_day.c.max_views).label("total_views"),
+                deltas.c.day.label("date"),
+                func.sum(deltas.c.delta_likes).label("total_likes"),
+                func.sum(deltas.c.delta_comments).label("total_comments"),
+                func.sum(deltas.c.delta_shares).label("total_shares"),
+                func.sum(deltas.c.delta_views).label("total_views"),
             )
-            .group_by(per_video_per_day.c.day)
-            .order_by(per_video_per_day.c.day)
+            .group_by(deltas.c.day)
+            .order_by(deltas.c.day)
         )
-        
+        date_from = _to_msk_naive(date_from)
         if date_from:
-            stmt = stmt.where(per_video_per_day.c.day >= date_from)
+            stmt = stmt.where(deltas.c.day >= date_from)
+        date_to = _to_msk_naive(date_to)
         if date_to:
-            stmt = stmt.where(per_video_per_day.c.day <= date_to)
-            
+            stmt = stmt.where(deltas.c.day <= date_to)
         result = await self._session.execute(stmt)
         return [dict(r) for r in result.mappings().all()]

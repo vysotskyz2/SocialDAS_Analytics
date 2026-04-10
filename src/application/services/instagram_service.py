@@ -8,6 +8,7 @@ from src.infrastructure.schemas.instagram import (
 
 
 class InstagramAnalyticsService:
+
     def __init__(self, repository: InstagramRepository) -> None:
         self._repo = repository
 
@@ -15,25 +16,28 @@ class InstagramAnalyticsService:
         user = await self._repo.get_user_by_ig_id(account_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instagram account not found")
-
         snapshot = await self._repo.get_latest_snapshot(user["id"])
         total_likes, total_comments = await self._repo.get_total_engagement(user["id"])
-
-        followers = snapshot["followers_count"] if snapshot else None
+        total_views = await self._repo.get_total_views(user["id"])
+        followers = user.get("followers_count") or (snapshot["followers_count"] if snapshot else 0)
+        following = user.get("follows_count") or (snapshot["follows_count"] if snapshot else 0)
+        media_count = user.get("media_count") or (snapshot["media_count"] if snapshot else 0)
+        post_count = await self._repo.get_post_count(user["id"])
+        avg_views = round(total_views / post_count, 2) if post_count > 0 else 0
         avg_er = None
         if followers and followers > 0:
-            post_count = await self._repo.get_post_count(user["id"])
             if post_count > 0:
                 avg_er = round((total_likes + total_comments) / post_count / followers * 100, 4)
-
         return IGOverview(
             account_id=account_id,
             username=user["username"],
             followers=followers,
-            following=snapshot["follows_count"] if snapshot else None,
-            media_count=snapshot["media_count"] if snapshot else None,
+            following=following,
+            media_count=media_count,
             total_likes=total_likes,
             total_comments=total_comments,
+            total_views=total_views,
+            avg_views=avg_views,
             avg_engagement_rate=avg_er,
         )
 
@@ -43,7 +47,6 @@ class InstagramAnalyticsService:
         user = await self._repo.get_user_by_ig_id(account_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instagram account not found")
-
         snapshots = await self._repo.get_follower_snapshots(user["id"], date_from, date_to)
         data = [
             IGFollowersPoint(
@@ -62,7 +65,6 @@ class InstagramAnalyticsService:
         user = await self._repo.get_user_by_ig_id(account_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instagram account not found")
-
         posts = await self._repo.get_top_posts(user["id"], date_from, date_to, limit)
         items: list[IGPostItem] = []
         for p in posts:
@@ -82,7 +84,6 @@ class InstagramAnalyticsService:
                 views=insight["views"] if insight else None,
                 shares=insight["shares"] if insight else None,
             ))
-
         post_count = await self._repo.get_post_count(user["id"])
         return IGPostsResponse(account_id=account_id, total_posts=post_count, data=items)
 
@@ -92,25 +93,18 @@ class InstagramAnalyticsService:
         user = await self._repo.get_user_by_ig_id(account_id)
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instagram account not found")
-
         insights = await self._repo.get_profile_insights(user["id"], date_from, date_to)
         post_trends = await self._repo.get_post_trends(user["id"], date_from, date_to)
-        
-        # Create a map of post trends for easy lookup
         trends_map = {pt["date"].date(): pt for pt in post_trends}
-        
         data = []
         for i in insights:
             dt = i["date"]
-            # Fallback to post stats if profile stats are missing
             likes = i["likes"] if i["likes"] is not None else trends_map.get(dt.date(), {}).get("likes", 0)
             comments = i["comments"] if i["comments"] is not None else trends_map.get(dt.date(), {}).get("comments", 0)
-            
             reach = i["reach"] or 0
             er = None
             if reach > 0:
                 er = round((likes + comments) / reach * 100, 4)
-
             data.append(IGEngagementPoint(
                 date=dt,
                 period=i["period"],
@@ -124,8 +118,6 @@ class InstagramAnalyticsService:
                 website_clicks=i["website_clicks"],
                 engagement_rate=er
             ))
-        
-        # If no insights but we have post trends, use those
         if not data and post_trends:
             for pt in post_trends:
                 data.append(IGEngagementPoint(
@@ -141,5 +133,4 @@ class InstagramAnalyticsService:
                     website_clicks=0,
                     engagement_rate=None
                 ))
-
         return IGEngagementResponse(account_id=account_id, data=data)

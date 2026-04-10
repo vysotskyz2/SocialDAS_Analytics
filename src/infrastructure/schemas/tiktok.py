@@ -8,6 +8,8 @@ class TTOverview(BaseModel):
     followers: int | None
     following: int | None
     total_likes: int | None
+    total_comments: int | None
+    total_views: int | None
     video_count: int | None
     avg_views: float | None
     avg_engagement_rate: float | None

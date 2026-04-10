@@ -13,6 +13,7 @@ from src.infrastructure.schemas.advanced import (
 
 
 class TikTokAdvancedService:
+
     def __init__(self, repository: TikTokRepository) -> None:
         self._repo = repository
 
@@ -38,7 +39,6 @@ class TikTokAdvancedService:
                 projections=[], data=[],
             )
 
-        # Parallelize math tasks
         growth_task = asyncio.to_thread(engine.compute_growth_rates, df["followers"])
         sma7_task = asyncio.to_thread(engine.sma, df["followers"], 7)
         sma30_task = asyncio.to_thread(engine.sma, df["followers"], 30)
@@ -235,11 +235,9 @@ class TikTokAdvancedService:
             reg = engine.linear_regression(df["engagement"])
             z = engine.compute_z_scores(df["engagement"])
             
-            # Engagement averages and projections
             sma7 = engine.sma(df["engagement"], 7)
             sma30 = engine.sma(df["engagement"], 30)
             
-            # Engagement projections
             ts = df["engagement"].copy()
             ts.index = df["date"]
             projections = engine.project_values(ts, 14)

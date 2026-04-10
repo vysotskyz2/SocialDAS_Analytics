@@ -1,7 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from dependency_injector.wiring import inject, Provide
-
 from src.interfaces.api.containers import Container
 from src.application.services.instagram_advanced import InstagramAdvancedService
 from src.infrastructure.schemas.advanced import (
@@ -22,14 +21,13 @@ async def growth(
 ):
     return await service.get_growth(account_id, date_from, date_to, projection_days)
 
-
 @router.get("/{account_id}/content-performance", response_model=ContentPerformanceResponse)
 @inject
 async def content_performance(
     account_id: str,
     date_from: datetime | None = Query(None),
     date_to: datetime | None = Query(None),
-    limit: int = Query(50, ge=1, le=200),
+    limit: int = Query(50, ge=1, le=1000),
     service: InstagramAdvancedService = Depends(Provide[Container.instagram_advanced_service]),
 ):
     return await service.get_content_performance(account_id, date_from, date_to, limit)
@@ -58,7 +56,6 @@ async def trends(
     sd = None
     if split_date:
         try:
-            # Handle ISO format with 'Z'
             sd = datetime.fromisoformat(split_date.replace('Z', '+00:00'))
         except ValueError:
             pass
