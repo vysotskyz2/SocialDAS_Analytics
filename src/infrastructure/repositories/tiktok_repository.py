@@ -1,15 +1,16 @@
+
 from datetime import timezone, timedelta
+
+def _to_msk_naive(dt):
+    if dt and dt.tzinfo:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None) + timedelta(hours=3)
+    return dt
 from datetime import datetime
 from uuid import UUID
 from sqlalchemy import select, func, desc
 from src.infrastructure.repositories.base import BaseRepository
 
 
-
-def _to_msk_naive(dt):
-    if dt and dt.tzinfo:
-        return dt.astimezone(timezone.utc).replace(tzinfo=None) + timedelta(hours=3)
-    return dt
 
 class TikTokRepository(BaseRepository):
 
